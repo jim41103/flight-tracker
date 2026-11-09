@@ -1,0 +1,135 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>機票價格追蹤</title>
+<style>
+:root{--font-anthropic-sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;--font-anthropic-serif:Georgia,"Songti TC","Noto Serif TC",serif;
+--color-bg:#faf9f5;--color-panel:#ffffff;--color-fg:#141413;--color-fg-muted:#6b6a64;--color-border-line:#e6e3d8;--color-ok:#2e7d4f;--color-bad:#c0392b;
+--cds-gap-md:1rem;--cds-pad-lg:1.25rem;--cds-pad-sm:.6rem;--cds-radius:.6rem;--cds-font-size-title:2rem;--cds-font-size-heading:1.15rem;--cds-font-size-caption:.9rem;--cds-font-weight-medium:600}
+@media(prefers-color-scheme:dark){:root{--color-bg:#262624;--color-panel:#30302e;--color-fg:#f5f4ee;--color-fg-muted:#b6b4a8;--color-border-line:#44433f;--color-ok:#6fd39a;--color-bad:#ff8a7a}}
+html{background:var(--color-bg)}body{margin:0;padding:1.25rem 1rem 3rem;background:var(--color-bg);color:var(--color-fg);font-family:var(--font-anthropic-sans);font-size:16px;line-height:1.55}
+.dash-select{font:inherit;padding:.3rem .45rem;border:1px solid var(--color-border-line);border-radius:var(--cds-radius);background:var(--color-bg);color:var(--color-fg)}
+
+.fp{max-width:72rem;margin-inline:auto;font-family:var(--font-anthropic-sans);display:grid;gap:var(--cds-gap-md)}
+.fp h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0}
+.fp p{margin:0;color:var(--color-fg-muted)}
+.fp .card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg)}
+.fp h2{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0 0 var(--cds-pad-sm)}
+.fp .scroll{overflow:auto;max-height:32rem}
+.fp table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:var(--cds-font-size-caption)}
+.fp th,.fp td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--color-border-line);white-space:nowrap}
+.fp th{position:sticky;top:0;background:var(--color-panel);color:var(--color-fg-muted);font-weight:var(--cds-font-weight-medium)}
+.fp td.n,.fp th.n{text-align:right}
+.fp .flt{display:flex;flex-wrap:wrap;gap:.5rem .75rem;align-items:flex-end;margin:0 0 var(--cds-pad-sm)}
+.fp .flt label{display:grid;gap:.15rem;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.fp .flt input[type=text],.fp .flt input[type=number]{font:inherit;padding:.3rem .45rem;border:1px solid var(--color-border-line);border-radius:var(--cds-radius);background:var(--color-bg);color:var(--color-fg);width:7rem}
+.fp .flt input.rng{width:5.5rem}
+.fp .flt button,.fp .sortbar button{font:inherit;padding:.3rem .7rem;border:1px solid var(--color-border-line);border-radius:var(--cds-radius);background:var(--color-panel);color:var(--color-fg);cursor:pointer}
+.fp .cnt{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:0 0 .4rem}
+.fp th.sortable{cursor:pointer;user-select:none}
+.fp th.sortable:hover{color:var(--color-fg)}
+.fp{grid-template-columns:minmax(0,1fr)}.fp>*{min-width:0}</style></head><body>
+<div class="fp">
+<h1>機票價格追蹤</h1>
+<p>單程、1 位乘客、只看轉機一次；價格一律換算成台幣（約數）。最新查價：<b data-draw="latest" data-source="offers">—</b>（斯德哥爾摩時間；同一天可有多次查價，各航段會和上一次比較）</p>
+<section class="card" id="cheapest">
+<h2>各航段最新最低價（轉機一次）</h2>
+<div class="scroll"><table data-source="cheapest" data-row-key="leg">
+<thead><tr><th data-field="leg">航段</th><th data-field="airline">航空</th><th data-field="fare">票種</th><th data-field="depart">出發</th><th data-field="flight_no">班機</th><th class="n" data-field="price_twd">台幣</th><th class="n" data-field="change">較上次</th><th data-field="baggage">行李</th></tr></thead>
+<tbody data-draw="cheapest-body"></tbody></table></div>
+</section>
+<section class="card" id="history">
+<h2>查價歷史（各航段每次最低價）</h2>
+<p>每次查價各航段的一次轉機最低價，以及和同航段上一次的差額。</p>
+<div class="scroll"><table data-source="history" data-row-key="key">
+<thead><tr><th data-field="run_at">查價時間</th><th data-field="leg">航段</th><th data-field="airline">航空</th><th data-field="fare">票種</th><th data-field="flight_no">班機</th><th class="n" data-field="price_twd">台幣</th><th class="n" data-field="change">較上次</th></tr></thead>
+<tbody data-draw="history-body"></tbody></table></div>
+</section>
+<section class="card" id="all">
+<h2>全部比價</h2>
+<p>學生票與一般票、行李差異並列。可用下方各欄位篩選，也可點表頭排序（再點一次反向）。</p>
+<div class="flt" id="flt">
+<label>查價時間<select class="dash-select" data-f="run_at" data-draw="opt" data-source="offers" aria-label="run_at"></select></label>
+<label>航段<select class="dash-select" data-f="leg" data-draw="opt" data-source="offers" aria-label="leg"></select></label>
+<label>航空<select class="dash-select" data-f="airline" data-draw="opt" data-source="offers" aria-label="airline"></select></label>
+<label>票種<select class="dash-select" data-f="fare" data-draw="opt" data-source="offers" aria-label="fare"></select></label>
+<label>出發<select class="dash-select" data-f="depart" data-draw="opt" data-source="offers" aria-label="depart"></select></label>
+<label>班機含<input type="text" data-f="flight_no" placeholder="如 TK25"></label>
+<label>台幣下限<input type="number" class="rng" data-f="pmin" placeholder="0"></label>
+<label>台幣上限<input type="number" class="rng" data-f="pmax" placeholder="不限"></label>
+<label>行李<select class="dash-select" data-f="baggage" data-draw="opt" data-source="offers" aria-label="baggage"></select></label>
+<label>備註含<input type="text" data-f="note" placeholder="關鍵字"></label>
+<label>快速排序<select class="dash-select" id="sortsel" aria-label="sort"><option value="">預設（新→舊、航段、價格）</option><option value="price_twd|asc">價格 低→高</option><option value="price_twd|desc">價格 高→低</option><option value="leg|asc">航段</option><option value="airline|asc">航空</option><option value="depart|asc">出發時間</option></select></label>
+<button type="button" id="fltreset">清除篩選</button>
+</div>
+<p class="cnt">顯示 <b data-draw="cnt" data-source="offers">—</b> 筆</p>
+<div class="scroll"><table data-source="offers" data-row-key="id">
+<thead><tr><th class="sortable" data-sort="run_at" data-field="run_at">查價時間<span class="arw" data-draw="arw" data-col="run_at">—</span></th><th class="sortable" data-sort="leg" data-field="leg">航段<span class="arw" data-draw="arw" data-col="leg">—</span></th><th class="sortable" data-sort="airline" data-field="airline">航空<span class="arw" data-draw="arw" data-col="airline">—</span></th><th class="sortable" data-sort="fare" data-field="fare">票種<span class="arw" data-draw="arw" data-col="fare">—</span></th><th class="sortable" data-sort="depart" data-field="depart">出發<span class="arw" data-draw="arw" data-col="depart">—</span></th><th class="sortable" data-sort="flight_no" data-field="flight_no">班機<span class="arw" data-draw="arw" data-col="flight_no">—</span></th><th class="n sortable" data-sort="price_twd" data-field="price_twd">台幣<span class="arw" data-draw="arw" data-col="price_twd">—</span></th><th class="sortable" data-sort="baggage" data-field="baggage">行李<span class="arw" data-draw="arw" data-col="baggage">—</span></th><th class="sortable" data-sort="note" data-field="note">備註<span class="arw" data-draw="arw" data-col="note">—</span></th></tr></thead>
+<tbody data-draw="offers-body"></tbody></table></div>
+</section>
+</div>
+
+<script src="data.js"></script><script>
+const d3={format:(s)=>(n)=>Number(n).toLocaleString('en-US')};
+const dash=(()=>{const calcs={},draws={};
+ const data=(n)=>{if(n==='offers')return {status:'ok',data:window.OFFERS};const c=calcs[n];return {status:'ok',data:c.fn(...c.inputs.map(i=>data(i).data))};};
+ const run=(n,el)=>{if(draws[n])draws[n](el);};
+ return {calc:(n,o)=>{calcs[n]=o;},data,
+  draw:(n,fn)=>{if(fn)draws[n]=fn;document.querySelectorAll('[data-draw="'+n+'"]').forEach(el=>run(n,el));}};})();
+
+const fmt=(n)=>'NT$'+d3.format(',')(Number(n));
+const runOf=(r)=>r.run_at||((r.date||'1970-01-01')+'T00:00:00Z');
+const stock=(iso)=>{const d=new Date(iso);if(isNaN(d))return String(iso);return d.toLocaleString('zh-TW',{timeZone:'Europe/Stockholm',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});};
+const sgn=(c)=>c==null?'首次':(c===0?'持平':(c>0?'+':'−')+d3.format(',')(Math.abs(c)));
+dash.calc('history',{title:'各航段每次查價最低價',description:'每次查價、每個航段中價格最低的一筆，並和同航段上一次的最低價比較',inputs:['offers'],fn:(offers)=>{
+ const best={};
+ offers.forEach(r=>{const k=runOf(r)+'|'+r.leg;const p=Number(r.price_twd);if(!best[k]||p<Number(best[k].price_twd))best[k]=r;});
+ const byLeg={};
+ Object.keys(best).forEach(k=>{const r=best[k];(byLeg[r.leg]=byLeg[r.leg]||[]).push({run_at:runOf(r),r});});
+ const out=[];
+ Object.keys(byLeg).forEach(leg=>{const a=byLeg[leg].sort((x,y)=>x.run_at<y.run_at?-1:1);a.forEach((x,i)=>{const p=Number(x.r.price_twd);out.push({key:x.run_at+'|'+leg,run_at:x.run_at,leg:leg,airline:x.r.airline,fare:x.r.fare,flight_no:x.r.flight_no,price_twd:p,change:i?p-Number(a[i-1].r.price_twd):null});});});
+ return out.sort((x,y)=>x.run_at<y.run_at?1:(x.run_at>y.run_at?-1:(x.leg<y.leg?-1:1)));
+}});
+dash.calc('cheapest',{title:'各航段最新最低價',description:'每個航段在最新一次查價中價格最低的一筆，並附和上一次的差額',inputs:['offers','history'],fn:(offers,history)=>{
+ const last=offers.map(runOf).sort().pop();
+ const best={};
+ offers.filter(r=>runOf(r)===last).forEach(r=>{const p=Number(r.price_twd);if(!best[r.leg]||p<Number(best[r.leg].price_twd))best[r.leg]=r;});
+ return Object.values(best).map(r=>{const h=history.filter(x=>x.leg===r.leg&&x.run_at===last)[0];return {leg:r.leg,airline:r.airline,fare:r.fare,depart:r.depart,flight_no:r.flight_no,price_twd:r.price_twd,change:h?h.change:null,baggage:r.baggage};});
+}});
+const fill=(el,rows,cols,keyf)=>{
+ el.replaceChildren(...rows.map(r=>{const tr=document.createElement('tr');tr.dataset.key=keyf(r);
+  cols.forEach(c=>{const td=document.createElement('td');let v=r[c];
+   if(c==='price_twd')v=fmt(v);else if(c==='change')v=sgn(v);else if(c==='run_at')v=stock(v);
+   td.textContent=String(v??'');if(c==='price_twd'||c==='change')td.className='n';
+   if(c==='change'&&r[c]!=null&&r[c]<0)td.style.color='var(--color-ok)';
+   if(c==='change'&&r[c]!=null&&r[c]>0)td.style.color='var(--color-bad)';
+   tr.append(td);});return tr;}));
+};
+dash.draw('cheapest-body',(el)=>{const g=dash.data('cheapest');if(g.status!=='ok')return;fill(el,g.data,['leg','airline','fare','depart','flight_no','price_twd','change','baggage'],r=>r.leg);});
+dash.draw('history-body',(el)=>{const g=dash.data('history');if(g.status!=='ok')return;fill(el,g.data,['run_at','leg','airline','fare','flight_no','price_twd','change'],r=>r.key);});
+const AF={sel:{},txt:{},pmin:'',pmax:'',sort:null,dir:1};
+const cmpDef=(a,b)=>{const x=a.run_at,y=b.run_at;return x<y?1:x>y?-1:(a.leg<b.leg?-1:a.leg>b.leg?1:Number(a.price_twd)-Number(b.price_twd));};
+const allRows=()=>{const g=dash.data('offers');return g.status==='ok'?g.data.map(r=>Object.assign({},r,{run_at:runOf(r)})):[];};
+const match=(r,skip)=>{for(const f in AF.sel){if(f!==skip&&AF.sel[f]&&String(r[f]??'')!==AF.sel[f])return false;}
+ for(const f in AF.txt){const q=AF.txt[f].trim().toLowerCase();if(q&&!String(r[f]??'').toLowerCase().includes(q))return false;}
+ const p=Number(r.price_twd);if(AF.pmin!==''&&p<Number(AF.pmin))return false;if(AF.pmax!==''&&p>Number(AF.pmax))return false;return true;};
+const optVals=(f)=>[...new Set(allRows().filter(r=>match(r,f)).map(r=>String(r[f]??'')))].sort((x,y)=>f==='run_at'?(x<y?1:-1):x.localeCompare(y,'zh-TW'));
+const norm=()=>{for(let i=0;i<4;i++){let ch=false;for(const f in AF.sel){if(AF.sel[f]&&optVals(f).indexOf(AF.sel[f])<0){AF.sel[f]='';ch=true;}}if(!ch)break;}};
+const filtered=()=>{const ALL=allRows();
+ let rows=ALL.filter(r=>match(r,null));
+ if(AF.sort){const f=AF.sort,k=AF.dir;rows=rows.slice().sort((a,b)=>{const x=a[f],y=b[f];const c=f==='price_twd'?Number(x)-Number(y):String(x??'').localeCompare(String(y??''),'zh-TW');return c*k||cmpDef(a,b);});}
+ else rows=rows.slice().sort(cmpDef);
+ return {rows:rows,total:ALL.length};};
+const redraw=()=>{dash.draw('offers-body');dash.draw('cnt');dash.draw('arw');dash.draw('opt');};
+dash.draw('offers-body',(el)=>{const g=dash.data('offers');if(g.status!=='ok')return;fill(el,filtered().rows,['run_at','leg','airline','fare','depart','flight_no','price_twd','baggage','note'],r=>r.id);});
+dash.draw('cnt',(el)=>{const g=dash.data('offers');if(g.status!=='ok')return;const f=filtered();el.textContent=f.rows.length+' / '+f.total;});
+dash.draw('arw',(el)=>{const c=el.dataset.col;el.textContent=AF.sort===c?(AF.dir>0?' ▲':' ▼'):'';});
+dash.draw('opt',(sel)=>{const f=sel.dataset.f;const vals=optVals(f);
+ sel.replaceChildren(new Option('全部',''),...vals.map(v=>new Option(f==='run_at'?stock(v):v,v)));
+ sel.value=vals.indexOf(AF.sel[f]||'')>=0?(AF.sel[f]||''):'';});
+(()=>{const bar=document.getElementById('flt');if(!bar)return;
+ bar.addEventListener('change',(e)=>{const el=e.target;const f=el.dataset&&el.dataset.f;
+  if(el.tagName==='SELECT'&&f){AF.sel[f]=el.value;norm();dash.draw('offers-body');dash.draw('cnt');dash.draw('opt');}
+  if(el.id==='sortsel'){const v=el.value;if(!v){AF.sort=null;AF.dir=1;}else{const p=v.split('|');AF.sort=p[0];AF.dir=p[1]==='desc'?-1:1;}dash.draw('offers-body');dash.draw('arw');}});
+ bar.addEventListener('input',(e)=>{const el=e.target;const f=el.dataset&&el.dataset.f;if(!f||el.tagName!=='INPUT')return;if(f==='pmin')AF.pmin=el.value;else if(f==='pmax')AF.pmax=el.value;else AF.txt[f]=el.value;norm();dash.draw('offers-body');dash.draw('cnt');dash.draw('opt');});
+ const rs=document.getElementById('fltreset');if(rs)rs.addEventListener('click',()=>{AF.sel={};AF.txt={};AF.pmin='';AF.pmax='';AF.sort=null;AF.dir=1;bar.querySelectorAll('input').forEach(i=>{i.value='';});const ss=document.getElementById('sortsel');if(ss)ss.value='';redraw();});
+ document.querySelectorAll('.fp th[data-sort]').forEach(th=>th.addEventListener('click',()=>{const f=th.dataset.sort;if(AF.sort===f)AF.dir=-AF.dir;else{AF.sort=f;AF.dir=1;}const ss=document.getElementById('sortsel');if(ss)ss.value='';dash.draw('offers-body');dash.draw('arw');}));})();
+dash.draw('latest',(el)=>{const g=dash.data('offers');if(g.status!=='ok')return;el.textContent=stock(g.data.map(runOf).sort().pop());});
+</script></body></html>
